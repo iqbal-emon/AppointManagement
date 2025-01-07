@@ -1,5 +1,6 @@
 ﻿using AppointManagement.Context;
 using AppointManagement.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
@@ -16,6 +17,7 @@ namespace AppointManagement.Controllers
         }
 
         [HttpPost("appointments")]
+        [Authorize]
         public IActionResult CreateAppointment([FromBody] Appointment appointment)
         {
             _context.Appointments.Add(appointment);
@@ -24,11 +26,13 @@ namespace AppointManagement.Controllers
         }
 
         [HttpGet("appointments")]
+        [Authorize]
         public IActionResult GetAppointments()
         {
             return Ok(_context.Appointments);
         }
         [HttpGet("appointments/{id}")]
+        [Authorize]
         public IActionResult GetAppointment(int id)
         {
             var appointment = _context.Appointments.Find(id);
@@ -39,6 +43,7 @@ namespace AppointManagement.Controllers
             return Ok(appointment);
         }
         [HttpPut("appointments/{id}")]
+        [Authorize]
         public IActionResult UpdateAppointment(int id, [FromBody] Appointment appointment)
         {
             var existingAppointment = _context.Appointments.Find(id);
@@ -53,6 +58,7 @@ namespace AppointManagement.Controllers
             return Ok(existingAppointment);
         }
         [HttpDelete("appointments/{id}")]
+        [Authorize]
         public IActionResult DeleteAppointment(int id)
         {
             var appointment = _context.Appointments.Find(id);
