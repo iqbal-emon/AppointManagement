@@ -24,7 +24,7 @@ The Appointment Management API provides a secure and efficient way to handle pat
 
 * .NET Core SDK
 * SQL Server
-* API testing tool (Postman recommended)
+* API testing tool (Swagger or postman)
 
 ## Setup Guide
 
