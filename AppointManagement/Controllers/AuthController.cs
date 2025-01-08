@@ -24,97 +24,104 @@ namespace AppointManagement.Controllers
             _context = context;
         }
 
-
-
-
         [HttpPost("login")]
         public IActionResult Login([FromBody] UserDTO loginRequest)
         {
-            if (string.IsNullOrWhiteSpace(loginRequest.Username) || string.IsNullOrWhiteSpace(loginRequest.Password))
+            try
             {
-                return BadRequest(new { Message = "Username and password are required." });
+                if (string.IsNullOrWhiteSpace(loginRequest.Username) || string.IsNullOrWhiteSpace(loginRequest.Password))
+                {
+                    return BadRequest(new { Message = "Username and password are required." });
+                }
+
+                var existingUser = _context.Users.FirstOrDefault(u => u.Username == loginRequest.Username);
+
+                if (existingUser == null)
+                {
+                    return Unauthorized(new { Message = "Invalid username or password." });
+                }
+
+                var passwordHasher = new PasswordHasher<User>();
+                var verificationResult = passwordHasher.VerifyHashedPassword(existingUser, existingUser.PasswordHash, loginRequest.Password);
+
+                if (verificationResult == PasswordVerificationResult.Failed)
+                {
+                    return Unauthorized(new { Message = "Invalid username or password." });
+                }
+
+                var accessToken = GenerateAccessToken(existingUser.Username, existingUser.UserId);
+
+                return Ok(new { Token = accessToken });
             }
-
-            var existingUser = _context.Users.FirstOrDefault(u => u.Username == loginRequest.Username);
-
-            if (existingUser == null)
+            catch (Exception ex)
             {
-                return Unauthorized(new { Message = "Invalid username or password." });
+                return StatusCode(500, new { Message = "An error occurred while processing your request. Please try again later." });
             }
-
-            var passwordHasher = new PasswordHasher<User>();
-            var verificationResult = passwordHasher.VerifyHashedPassword(existingUser, existingUser.PasswordHash, loginRequest.Password);
-
-            if (verificationResult == PasswordVerificationResult.Failed)
-            {
-                return Unauthorized(new { Message = "Invalid username or password." });
-            }
-
-            var accessToken = GenerateAccessToken(existingUser.Username, existingUser.UserId);
-
-            return Ok(new { Token = accessToken });
         }
-
 
         [HttpPost("register")]
         public IActionResult Register([FromBody] UserDTO userDto)
         {
-            if (userDto == null || string.IsNullOrWhiteSpace(userDto.Username) || string.IsNullOrWhiteSpace(userDto.Password))
-            {
-                return BadRequest(new { Message = "Invalid registration data. Username and password are required." });
-            }
-
-            if (_context.Users.Any(u => u.Username == userDto.Username))
-            {
-                return Conflict(new { Message = "Username already exists. Please choose a different username." });
-            }
-
-            var passwordHasher = new PasswordHasher<UserDTO>();
-            var hashedPassword = passwordHasher.HashPassword(userDto, userDto.Password);
-
-            var user = new User
-            {
-                Username = userDto.Username,
-                PasswordHash = hashedPassword
-            };
-
             try
             {
+                if (userDto == null || string.IsNullOrWhiteSpace(userDto.Username) || string.IsNullOrWhiteSpace(userDto.Password))
+                {
+                    return BadRequest(new { Message = "Invalid registration data. Username and password are required." });
+                }
+
+                if (_context.Users.Any(u => u.Username == userDto.Username))
+                {
+                    return Conflict(new { Message = "Username already exists. Please choose a different username." });
+                }
+
+                var passwordHasher = new PasswordHasher<UserDTO>();
+                var hashedPassword = passwordHasher.HashPassword(userDto, userDto.Password);
+
+                var user = new User
+                {
+                    Username = userDto.Username,
+                    PasswordHash = hashedPassword
+                };
+
                 _context.Users.Add(user);
                 _context.SaveChanges();
+
                 return Ok(new { Message = "Registration successful." });
             }
             catch (Exception ex)
             {
+                // Log the exception (e.g., to a file or monitoring system)
                 return StatusCode(500, new { Message = "An error occurred while registering the user. Please try again later." });
             }
         }
 
-
         private string GenerateAccessToken(string userName, int? userId)
         {
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["JwtSettings:SecretKey"]));
-            var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-
-            var claims = new[]
+            try
             {
-                new Claim(ClaimTypes.Name, userName),
-                new Claim("UserId", userId?.ToString() ?? string.Empty)
-            };
+                var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["JwtSettings:SecretKey"]));
+                var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
-            var token = new JwtSecurityToken(
-                issuer: _configuration["JwtSettings:Issuer"],
-                audience: _configuration["JwtSettings:Audience"],
-                claims: claims,
-                expires: DateTime.UtcNow.AddMinutes(15), // Access token validity
-                signingCredentials: credentials
-            );
+                var claims = new[]
+                {
+                    new Claim(ClaimTypes.Name, userName),
+                    new Claim("UserId", userId?.ToString() ?? string.Empty)
+                };
 
-            return new JwtSecurityTokenHandler().WriteToken(token);
+                var token = new JwtSecurityToken(
+                    issuer: _configuration["JwtSettings:Issuer"],
+                    audience: _configuration["JwtSettings:Audience"],
+                    claims: claims,
+                    expires: DateTime.UtcNow.AddMinutes(15), // Access token validity
+                    signingCredentials: credentials
+                );
+
+                return new JwtSecurityTokenHandler().WriteToken(token);
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException("Error generating access token", ex);
+            }
         }
-
     }
-
-
-
 }
