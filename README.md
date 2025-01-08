@@ -41,9 +41,9 @@ Update `appsettings.json` with your database connection:
 
 ```json
 {
-  "ConnectionStrings": {
-    "DefaultConnection": "Server=<your_server>;Database=AppointmentDB;Trusted_Connection=True;"
-  }
+   "ConnectionStrings": {
+   "DefaultConnection": "Data Source=DESKTOP-41QOLKC;Initial Catalog=DoctorAppointment;Trusted_Connection=true;TrustServerCertificate=true;"
+ }
 }
 ```
 
@@ -100,7 +100,6 @@ The API will be accessible at:
 * **Response:**
   ```json
   {
-    "message": "Login Successful",
     "token": "your_jwt_token"
   }
   ```
