@@ -16,8 +16,9 @@ namespace AppointManagement.Models
         public DateTime? AppointmentDateTime { get; set; }
         [Required]
         [ForeignKey("Doctor")]
+
         public int? DoctorId { get; set; }
-        public Doctor? Doctor { get; set; }
+        public Doctor Doctor { get; set; }
         
 
     }

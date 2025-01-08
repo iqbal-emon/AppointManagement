@@ -1,5 +1,6 @@
 ﻿using AppointManagement.Context;
 using AppointManagement.Models;
+using AppointManagement.Models.DTO;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.Data;
@@ -27,45 +28,68 @@ namespace AppointManagement.Controllers
 
 
         [HttpPost("login")]
-        public IActionResult Login([FromBody] User loginRequest)
+        public IActionResult Login([FromBody] UserDTO loginRequest)
         {
-            // Fetch the user based on the username
+            if (string.IsNullOrWhiteSpace(loginRequest.Username) || string.IsNullOrWhiteSpace(loginRequest.Password))
+            {
+                return BadRequest(new { Message = "Username and password are required." });
+            }
+
             var existingUser = _context.Users.FirstOrDefault(u => u.Username == loginRequest.Username);
 
             if (existingUser == null)
             {
-                return Unauthorized("Invalid username or password."); 
+                return Unauthorized(new { Message = "Invalid username or password." });
             }
 
-            // Verify the provided password against the stored hash
             var passwordHasher = new PasswordHasher<User>();
-            var verificationResult = passwordHasher.VerifyHashedPassword(existingUser, existingUser.PasswordHash, loginRequest.PasswordHash);
+            var verificationResult = passwordHasher.VerifyHashedPassword(existingUser, existingUser.PasswordHash, loginRequest.Password);
 
             if (verificationResult == PasswordVerificationResult.Failed)
             {
-                return Unauthorized("Invalid username or password."); // Password mismatch
+                return Unauthorized(new { Message = "Invalid username or password." });
             }
 
-            // Generate JWT token
             var accessToken = GenerateAccessToken(existingUser.Username, existingUser.UserId);
 
-            // Return the token
-            return Ok(new { AccessToken = accessToken });
+            return Ok(new { Token = accessToken });
         }
+
 
         [HttpPost("register")]
-        public IActionResult Register([FromBody] User user)
+        public IActionResult Register([FromBody] UserDTO userDto)
         {
+            if (userDto == null || string.IsNullOrWhiteSpace(userDto.Username) || string.IsNullOrWhiteSpace(userDto.Password))
+            {
+                return BadRequest(new { Message = "Invalid registration data. Username and password are required." });
+            }
 
-            var passwordHasher = new PasswordHasher<User>();
+            if (_context.Users.Any(u => u.Username == userDto.Username))
+            {
+                return Conflict(new { Message = "Username already exists. Please choose a different username." });
+            }
 
-            var hashedPassword = passwordHasher.HashPassword(user, user.PasswordHash);
-            user.PasswordHash = hashedPassword;
+            var passwordHasher = new PasswordHasher<UserDTO>();
+            var hashedPassword = passwordHasher.HashPassword(userDto, userDto.Password);
 
-            _context.Users.Add(user);
-            _context.SaveChanges();
-            return Ok(new {Message="Registraion Successful"});
+            var user = new User
+            {
+                Username = userDto.Username,
+                PasswordHash = hashedPassword
+            };
+
+            try
+            {
+                _context.Users.Add(user);
+                _context.SaveChanges();
+                return Ok(new { Message = "Registration successful." });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { Message = "An error occurred while registering the user. Please try again later." });
+            }
         }
+
 
         private string GenerateAccessToken(string userName, int? userId)
         {
